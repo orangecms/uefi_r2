@@ -41,7 +41,8 @@ def analyze_image(image_path: str, out: str) -> bool:
 @click.command()
 @click.argument("image_path")
 @click.option("-r", "--rule", help="The path to the rule.")
-def scan(image_path: str, rule: str) -> bool:
+@click.option("-o", "--out", help="Output JSON file.")
+def scan(image_path: str, rule: str, out: str) -> bool:
     """Scan input UEFI image."""
 
     if not os.path.isfile(image_path):
@@ -51,21 +52,42 @@ def scan(image_path: str, rule: str) -> bool:
         print("{} check rule path".format(click.style("ERROR", fg="red", bold=True)))
         return False
 
-    uefi_analyzer = UefiAnalyzer(image_path)
-    prefix = click.style("UEFI analyzer", fg="green")
-    print(f"{prefix} nvram: {[x.__dict__ for x in uefi_analyzer.nvram_vars]}")
-    print(f"{prefix} protocols: {[x.__dict__ for x in uefi_analyzer.protocols]}")
-    print(f"{prefix} guids: {[x.__dict__ for x in uefi_analyzer.protocol_guids]}")
+    #       "rule": {
+    #           "nvram": uefi_rule.nvram_vars,
+    #           "protocols": uefi_rule.protocols,
+    #           "guids": uefi_rule.protocol_guids,
+    #       },
+    if out:
+        uefi_analyzer = UefiAnalyzer(image_path)
+        uefi_rule = UefiRule(rule)
+        scanner = UefiScanner(uefi_analyzer, uefi_rule)
+        data = {
+            "analyzer": {
+                "nvram": uefi_analyzer.nvram_vars,
+                "protocols": uefi_analyzer.protocols,
+                "guids": uefi_analyzer.protocol_guids,
+            },
+            "rule": uefi_rule._uefi_rule,
+            "scanner": scanner.result
+        }
+        with open(out, "w") as f:
+            json.dump(data, f, indent=4)
+    else:
+        uefi_analyzer = UefiAnalyzer(image_path)
+        prefix = click.style("UEFI analyzer", fg="green")
+        print(f"{prefix} nvram: {[x.__dict__ for x in uefi_analyzer.nvram_vars]}")
+        print(f"{prefix} protocols: {[x.__dict__ for x in uefi_analyzer.protocols]}")
+        print(f"{prefix} guids: {[x.__dict__ for x in uefi_analyzer.protocol_guids]}")
 
-    uefi_rule = UefiRule(rule)
-    prefix = click.style("UEFI rule", fg="green")
-    print(f"{prefix} nvram: {[x.__dict__ for x in uefi_rule.nvram_vars]}")
-    print(f"{prefix} protocols: {[x.__dict__ for x in uefi_rule.protocols]}")
-    print(f"{prefix} guids: {[x.__dict__ for x in uefi_rule.protocol_guids]}")
+        uefi_rule = UefiRule(rule)
+        prefix = click.style("UEFI rule", fg="green")
+        print(f"{prefix} nvram: {[x.__dict__ for x in uefi_rule.nvram_vars]}")
+        print(f"{prefix} protocols: {[x.__dict__ for x in uefi_rule.protocols]}")
+        print(f"{prefix} guids: {[x.__dict__ for x in uefi_rule.protocol_guids]}")
 
-    scanner = UefiScanner(uefi_analyzer, uefi_rule)
-    prefix = click.style("Scanner result", fg="green")
-    print(f"{prefix} {scanner.result}")
+        scanner = UefiScanner(uefi_analyzer, uefi_rule)
+        prefix = click.style("Scanner result", fg="green")
+        print(f"{prefix} {scanner.result}")
 
     return True
 
